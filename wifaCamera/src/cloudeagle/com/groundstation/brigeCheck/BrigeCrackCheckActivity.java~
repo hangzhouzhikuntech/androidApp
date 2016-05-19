@@ -1,0 +1,212 @@
+package package cloudeagle.com.groundstation.brigeCheck;
+import java.io.File;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.io.InputStream;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Vector;
+
+  
+import android.app.Activity;
+import android.app.Dialog;
+import android.content.Context;
+import android.graphics.Bitmap;  
+import android.graphics.Bitmap.Config;  
+import android.graphics.BitmapFactory;  
+import android.os.Bundle;
+import android.os.Environment;
+import android.os.Handler;  
+import android.util.Log;  
+import android.view.Menu;  
+import android.view.View;  
+import android.view.View.OnClickListener;  
+import android.widget.Button;  
+import android.widget.ImageView;
+import android.widget.Toast;
+import android.app.Activity;
+import android.os.Bundle;
+import android.view.Menu;
+import android.view.MenuItem;
+
+public class BrigeCrackCheckActivity extends Activity {  
+  
+    Button btnProcess;  
+    Bitmap srcBitmap;  
+    Bitmap grayBitmap;  
+    ImageView imgHuaishi;  
+    Button btnRecover;
+    private static boolean flag = true;   
+    private static boolean isFirst = true;   
+    private static final String TAG = "MainActivity"; 
+    static private int openfileDialogId = 0; 
+  
+    //OpenCV库加载并初始化成功后的回调函数  
+    /*private BaseLoaderCallback mLoaderCallback = new BaseLoaderCallback(this) {  
+  
+        @Override  
+        public void onManagerConnected(int status) {  
+            // TODO Auto-generated method stub  
+            switch (status){  
+            case BaseLoaderCallback.SUCCESS:  
+                Log.i(TAG, "成功加载");  
+                break;  
+            default:  
+                super.onManagerConnected(status);  
+                Log.i(TAG, "加载失败");  
+                break;  
+            }  
+              
+        }  
+    };  */
+    @Override  
+    protected void onCreate(Bundle savedInstanceState) {  
+        super.onCreate(savedInstanceState);  
+        setContentView(R.layout.activity_main);  
+        initUI();  
+        btnRecover.setEnabled(false);
+        btnProcess.setOnClickListener(new ProcessClickListener());  
+        btnRecover.setOnClickListener(new ProcessClickListener());
+    }  
+  
+  
+    @Override  
+    public boolean onCreateOptionsMenu(Menu menu) {  
+        // Inflate the menu; this adds items to the action bar if it is present.  
+        getMenuInflater().inflate(R.menu.main, menu);  
+        return true;  
+    }  
+  
+    public void initUI(){  
+        btnProcess = (Button)findViewById(R.id.button1);
+        btnRecover = (Button)findViewById(R.id.button2);  
+        imgHuaishi = (ImageView)findViewById(R.id.imageView1);  
+        Log.i(TAG, "initUI sucess...");  
+  
+    }  
+  
+    public void procSrc2Gray(String file_path){  
+
+
+	      File cascadeDir = getDir("cascade", Context.MODE_PRIVATE);
+	      File cascadeFile = new File(cascadeDir, "hogcascade_crack.xml");
+	      
+	      if (!cascadeFile.exists())
+	      {
+	    	  try
+	    	  {
+		    	  Toast.makeText(getBaseContext(), "create cascade file",Toast.LENGTH_SHORT).show();
+			      InputStream is = getResources().openRawResource(R.raw.hogcascade_crack);
+		
+			      FileOutputStream os = new FileOutputStream(cascadeFile);
+			
+				  byte[] buffer = new byte[4096];
+				  int bytesRead;
+				  while ((bytesRead = is.read(buffer)) != -1) {
+				  os.write(buffer, 0, bytesRead);
+				  }
+				  is.close();
+				  os.close();
+	    	  }
+	    	  catch (IOException e) {
+	              e.printStackTrace();
+	              Log.e(TAG, "Failed to load cascade. Exception thrown: " + e);
+	          }
+	     }
+        int ret = JniOpencv.CrackDetect(file_path,cascadeFile.getAbsolutePath());
+        if (ret == 0)
+        {
+        	System.out.println("proc success");
+        	int index = file_path.lastIndexOf('.');
+        	String new_file_path = file_path.substring(0, index) + "_detect.jpg"; 
+        	System.out.println("new file path is "+ new_file_path);
+        	grayBitmap = BitmapFactory.decodeFile(new_file_path);
+        	imgHuaishi.setImageBitmap(grayBitmap);
+        	btnRecover.setEnabled(true);
+        }
+        else
+        {
+        	System.out.println("crark detect failed result = " + ret);
+        	btnRecover.setEnabled(false);
+        	imgHuaishi.setImageBitmap(srcBitmap);
+        }
+        Log.i(TAG, "procSrc2Gray sucess...");  
+    }  
+  
+    
+    public void detectAndDisplay(String filepath )
+    {
+      System.out.println(filepath);
+      
+    }
+
+    @Override  
+    protected Dialog onCreateDialog(int id) {  
+        if(id==openfileDialogId){  
+            Dialog dialog = openfile.createDialog(id, this, "打开文件", new CallbackBundle() {  
+                @Override  
+                public void callback(Bundle bundle) {  
+                    String filepath = bundle.getString("path");  
+                    int index = filepath.lastIndexOf('/');
+                    setTitle(filepath.substring(index+1)); // 把文件路径显示在标题上 
+                	File imgFile = new File(filepath);
+                	if (!imgFile.exists())
+                	{
+                		System.out.println("file not exist");
+                		return;
+                	}
+                    srcBitmap = BitmapFactory.decodeFile(imgFile.getAbsolutePath());
+                    //imgHuaishi.setImageBitmap(srcBitmap);
+                    procSrc2Gray(filepath);
+                }  
+            },   
+            ".jpg;");  
+            return dialog;  
+        }  
+        return null;  
+    }
+    private class ProcessClickListener implements OnClickListener{  
+          
+        @Override  
+        public void onClick(View v) { 
+        	if (v.getId() == R.id.button2)
+        	{
+        		imgHuaishi.setImageBitmap(srcBitmap);
+        	}
+        	else
+        	{
+	            // TODO Auto-generated method stub  
+
+	                //procSrc2Gray();
+	            	showDialog(openfileDialogId);
+	            	//btnRecover.setEnabled(true);
+
+        	}
+
+        }  
+  
+    }  
+  
+    @Override  
+    protected void onResume() {  
+        // TODO Auto-generated method stub  
+        super.onResume();  
+        //load OpenCV engine and init OpenCV library  
+        //OpenCVLoader.initAsync(OpenCVLoader.OPENCV_VERSION_2_4_10, this, mLoaderCallback);  
+        Log.i(TAG, "onResume sucess load OpenCV...");  
+//      new Handler().postDelayed(new Runnable(){  
+//  
+//          @Override  
+//          public void run() {  
+//              // TODO Auto-generated method stub  
+//              procSrc2Gray();  
+//          }  
+//            
+//      }, 1000);  
+          
+    }  
+      
+      
+      
+  
+}  
